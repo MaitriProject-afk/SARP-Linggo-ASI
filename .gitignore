@@ -1,0 +1,21 @@
+# Build Directories
+build32/
+build/
+.vs/
+out/
+.vscode/
+.idea/
+
+# Binaries & Outputs
+*.asi
+*.dll
+*.exe
+*.obj
+*.o
+*.lib
+*.a
+
+# Runtime Log & License files
+SARPLinggo.ini
+SARPLinggo_license.json
+SARPLinggo_debug.log
