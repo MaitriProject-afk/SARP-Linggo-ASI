@@ -415,13 +415,6 @@ std::string GroqTranslator::clean_translation_output(const std::string& raw_outp
 std::string GroqTranslator::translate_inbound(const std::string& text, const std::string& chat_type) {
     if (text.empty()) return text;
 
-    // Check License Status
-    if (license_mgr && !license_mgr->is_active()) {
-        last_error_detail = "[Lisensi Belum Aktif / Perlu Aktivasi]";
-        LogDebugLocal("[License Error] Inbound translation blocked because license is not active.");
-        return "";
-    }
-
     size_t total_attempts = key_pool.total_keys();
     if (total_attempts == 0) {
         last_error_detail = "[Groq API Key Belum Diisi / Token Pool Kosong]";
@@ -492,13 +485,6 @@ std::string GroqTranslator::translate_inbound(const std::string& text, const std
 
 std::string GroqTranslator::translate_outbound(const std::string& text, const std::string& style) {
     if (text.empty()) return text;
-
-    // Check License Status
-    if (license_mgr && !license_mgr->is_active()) {
-        last_error_detail = "[Lisensi Belum Aktif / Perlu Aktivasi]";
-        LogDebugLocal("[License Error] Outbound translation blocked because license is not active.");
-        return text;
-    }
 
     size_t total_attempts = key_pool.total_keys();
     if (total_attempts == 0) {

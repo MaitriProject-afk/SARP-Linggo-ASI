@@ -352,58 +352,25 @@ void OverlayGUI::render() {
                 ImGui::EndTabItem();
             }
 
-            // TAB 4: LICENSE & INFO
-            if (ImGui::BeginTabItem("Lisensi & Info")) {
+            // TAB 4: INFO & ABOUT
+            if (ImGui::BeginTabItem("Info Mod")) {
                 ImGui::Spacing();
 
                 ImGui::TextColored(ImVec4(0.22f, 0.74f, 0.97f, 1.0f), "=== SA-RP Linggo ASI Mod v1.3 ===");
-                ImGui::Text("Pengembang: SA-RP Linggo Team");
-                ImGui::Text("Status Sistem: Aktif (DirectX9 Native Hook)");
+                ImGui::Text("Pengembang: MaitriProject");
+                ImGui::Text("Status Mod: 100%% Free & Open-Source Build");
+                ImGui::Text("Engine: DirectX 9 Native ASI Hook + ImGui");
+                ImGui::Spacing();
                 ImGui::Text("Pintasan Keyboard:");
                 ImGui::Text("- Shift + H    : Hide / Show Overlay Window");
                 ImGui::Text("- Shift + Enter: Unlock / Lock Cursor Interaksi");
+                ImGui::Text("- F7           : Toggle Overlay");
 
                 ImGui::Spacing();
                 ImGui::Separator();
 
-                // License Section
-                ImGui::TextColored(ImVec4(0.97f, 0.74f, 0.22f, 1.0f), "Status Lisensi Perangkat:");
-
-                std::string hwid = LicenseManager::get_local_hwid();
-
-                if (license_ref) {
-                    if (license_ref->is_active()) {
-                        ImGui::TextColored(ImVec4(0.10f, 0.73f, 0.51f, 1.0f), "[+] Lisensi Status: AKTIF");
-                        ImGui::Text("HWID Perangkat: %s", hwid.c_str());
-                    } else {
-                        ImGui::TextColored(ImVec4(0.94f, 0.27f, 0.27f, 1.0f), "[X] Lisensi Status: TIDAK AKTIF / BELUM DIAKTIFKAN");
-                        ImGui::Text("HWID Perangkat: %s", hwid.c_str());
-                        ImGui::SameLine();
-                        if (ImGui::Button("[Salin HWID]")) {
-                            ImGui::SetClipboardText(hwid.c_str());
-                        }
-
-                        ImGui::Spacing();
-                        ImGui::Text("Masukkan Token Lisensi Anda (Format: SARP-...):");
-                        ImGui::InputText("##LicenseInput", license_token_buffer, sizeof(license_token_buffer));
-                        ImGui::SameLine();
-                        if (ImGui::Button("Aktivasi Lisensi")) {
-                            if (license_token_buffer[0] != '\0') {
-                                std::string err_msg = "";
-                                if (license_ref->activate_token(license_token_buffer, err_msg)) {
-                                    license_action_msg = "[+] Aktivasi Berhasil! Lisensi Aktif.";
-                                } else {
-                                    license_action_msg = "[X] Gagal Aktivasi: " + err_msg;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!license_action_msg.empty()) {
-                        ImGui::Spacing();
-                        ImGui::TextWrapped("%s", license_action_msg.c_str());
-                    }
-                }
+                ImGui::TextColored(ImVec4(0.10f, 0.73f, 0.51f, 1.0f), "[+] Lisensi: BEBAS / DIBUKA TOTAL (OPEN SOURCE)");
+                ImGui::TextWrapped("Mod ini 100%% Gratis dan Bebas Digunakan tanpa perlu aktivasi lisensi. Cukup masukkan Groq API Key milik Anda sendiri pada Tab Pengaturan untuk langsung menggunakannya.");
 
                 ImGui::EndTabItem();
             }
