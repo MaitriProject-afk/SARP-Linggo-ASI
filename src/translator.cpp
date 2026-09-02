@@ -54,7 +54,11 @@ static const std::unordered_set<std::string> ENGLISH_MARKERS = {
     "take", "people", "into", "year", "your", "good", "some", "could", "them", "see",
     "other", "than", "then", "now", "look", "only", "come", "its", "over", "think",
     "gonna", "wanna", "gotta", "tryna", "finna", "bruh", "homie", "fool", "fuck",
-    "shit", "bitch", "ass", "damn", "cops", "police", "car", "gun", "drop", "hands"
+    "shit", "bitch", "ass", "damn", "cops", "police", "car", "gun", "drop", "hands",
+    "mad", "happy", "feeling", "feel", "fam", "bro", "brother", "sis", "sister", "dawg",
+    "dog", "man", "guy", "dude", "cuz", "trippin", "aight", "nah", "yeah", "yep", "nope",
+    "bad", "great", "cool", "nice", "fine", "okay", "ok", "sorry", "please", "thanks",
+    "thank", "aint", "isnt", "arent", "wasnt", "werent", "dont", "doesnt", "didnt", "cant"
 };
 
 static std::string to_lower(const std::string& str) {
@@ -112,14 +116,17 @@ bool should_translate_inbound(const std::string& text) {
         if (INDONESIAN_MARKERS.count(w)) indonesian_matches++;
     }
 
-    // Strict Rule: If text contains ANY Indonesian words or is primarily Indonesian, do NOT translate!
-    if (indonesian_matches >= 1 && indonesian_matches >= english_matches) {
-        return false;
-    }
-    if (english_matches >= 1 && english_matches > indonesian_matches) {
+    // 1. If text contains NO Indonesian words, it is foreign input -> MUST translate
+    if (indonesian_matches == 0) {
         return true;
     }
 
+    // 2. If English markers outnumber Indonesian markers -> MUST translate
+    if (english_matches > indonesian_matches) {
+        return true;
+    }
+
+    // 3. Otherwise (primarily Indonesian text) -> do not translate
     return false;
 }
 
