@@ -36,13 +36,22 @@ static const std::unordered_set<std::string> INDONESIAN_MARKERS = {
     "benar", "sih", "dong", "kan", "lah", "deh", "kok", "noh", "tuh", "nih", "nanti",
     "kemarin", "besok", "mana", "sini", "situ", "sana", "brapa", "berapa", "bang",
     "orang", "kerja", "jalan", "makan", "minum", "beli", "jual", "rumah", "mobil", "motor",
-    "anjir", "anjg", "jir", "goblok", "tolol", "bego", "kontol", "memek", "peler", "bgst", "woi",
-    "ganteng", "cantik", "harga", "tawar", "sewa", "flat", "gubuk", "dijual", "dicari", "butuh",
-    "surat", "lengkap", "insu", "up", "dana", "tapi", "jadi", "karena", "sebab", "oleh", "bunuh",
-    "cepat", "minta", "maaf", "bahkan", "supaya", "agar", "setiap", "lagi", "terus", "biar",
-    "tahu", "tau", "ganti", "dulu", "duluan", "pasti", "mohon", "coba", "bikin", "buat", "pukul",
-    "tendang", "tembak", "lari", "pergi", "pulang", "datang", "bawa", "taruh", "kasih", "kasii",
-    "keterlaluan", "kencing", "celana", "hahaha", "wkwk", "lol"
+    "sepertinya", "kehabisan", "bensin", "kayaknya", "rasanya", "pasti", "bikin", "buat",
+    "lihat", "pergi", "datang", "naik", "turun", "bawa", "polisi", "senjata", "peluru",
+    "buka", "tutup", "mati", "hidup", "rusak", "bakar", "hilang", "cari", "temu", "tarik",
+    "dorong", "pukul", "tendang", "lari", "duduk", "tidur", "bangun", "serang", "kabur",
+    "kelakuan", "mu", "sungguh", "memalukan", "parah", "banget", "parahbanget", "anjir",
+    "anjg", "jir", "jirrr", "panteq", "pantek", "goblok", "tolol", "bego", "kontol",
+    "memek", "peler", "bgst", "asli", "wkwk", "wkwkwk", "woi", "woii", "bro", "bray",
+    "jangan", "berbuat", "sial", "keterlaluan", "bahaya", "diri", "aduh", "kasihan", "kasian",
+    "artinya", "penggunaan", "melarang", "modifikasi", "berbasis", "aplikasi", "sistem",
+    "fitur", "tombol", "halaman", "pesan", "folder", "file", "baca", "tulis", "simpan",
+    "hapus", "kirim", "terima", "pilihan", "pilih", "tambah", "ubah", "ganti", "bantu",
+    "tentang", "cara", "main", "mainkan", "pakai", "pake", "server", "bebas", "luas",
+    "banyak", "sedikit", "semua", "setiap", "beberapa", "apapun", "siapapun", "manapun",
+    "tetap", "selalu", "sering", "kadang", "jarang", "pernah", "dulu", "sekarang", "nantinya",
+    "tinggal", "tekan", "kolom", "chat", "menempelkan", "hasil", "terjemahannya", "mirip",
+    "kode", "struktur", "membaca", "tanpa"
 };
 
 static const std::unordered_set<std::string> ENGLISH_MARKERS = {
@@ -53,12 +62,14 @@ static const std::unordered_set<std::string> ENGLISH_MARKERS = {
     "go", "me", "when", "make", "can", "like", "time", "no", "just", "him", "know",
     "take", "people", "into", "year", "your", "good", "some", "could", "them", "see",
     "other", "than", "then", "now", "look", "only", "come", "its", "over", "think",
-    "gonna", "wanna", "gotta", "tryna", "finna", "bruh", "homie", "fool", "fuck",
-    "shit", "bitch", "ass", "damn", "cops", "police", "car", "gun", "drop", "hands",
+    "also", "back", "after", "use", "two", "how", "our", "work", "first", "well",
+    "way", "even", "new", "want", "because", "any", "these", "give", "day", "most",
+    "us", "gonna", "wanna", "gotta", "tryna", "finna", "bruh", "homie", "fool", "fuck",
+    "fucking", "shit", "bitch", "ass", "asshole", "damn", "motherfucker", "nigga",
+    "cops", "police", "car", "gun", "drop", "hands", "freeze", "stop", "move", "deadass",
+    "straight", "useless", "damn", "meet", "met", "cellphone", "says", "shouts", "whispers",
     "mad", "happy", "feeling", "feel", "fam", "bro", "brother", "sis", "sister", "dawg",
-    "dog", "man", "guy", "dude", "cuz", "trippin", "aight", "nah", "yeah", "yep", "nope",
-    "bad", "great", "cool", "nice", "fine", "okay", "ok", "sorry", "please", "thanks",
-    "thank", "aint", "isnt", "arent", "wasnt", "werent", "dont", "doesnt", "didnt", "cant"
+    "dog", "man", "guy", "dude", "cuz", "trippin", "aight", "nah", "yeah", "yep", "nope"
 };
 
 static std::string to_lower(const std::string& str) {
@@ -116,18 +127,18 @@ bool should_translate_inbound(const std::string& text) {
         if (INDONESIAN_MARKERS.count(w)) indonesian_matches++;
     }
 
-    // 1. If text contains NO Indonesian words, it is foreign input -> MUST translate
-    if (indonesian_matches == 0) {
+    // 1. If it contains clear English words or slang markers, translate it!
+    if (english_matches >= 1) {
         return true;
     }
 
-    // 2. If English markers outnumber Indonesian markers -> MUST translate
-    if (english_matches > indonesian_matches) {
-        return true;
+    // 2. If it contains Indonesian markers and no English markers, it's native Indonesian (skip)
+    if (indonesian_matches >= 1) {
+        return false;
     }
 
-    // 3. Otherwise (primarily Indonesian text) -> do not translate
-    return false;
+    // 3. Foreign text or unknown words (e.g. Spanish, French, etc.) -> translate
+    return true;
 }
 
 void KeyPoolManager::update_keys(const std::vector<std::string>& new_keys) {
