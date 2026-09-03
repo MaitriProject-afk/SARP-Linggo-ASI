@@ -21,6 +21,12 @@ static std::string trim_str(const std::string& str) {
     return str.substr(first, (last - first + 1));
 }
 
+static std::string to_lower_str(const std::string& str) {
+    std::string lower = str;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+    return lower;
+}
+
 extern std::string g_log_file_path;
 static void LogDebugLocal(const std::string& msg) {
     try {
@@ -580,10 +586,19 @@ std::string GroqTranslator::translate_outbound(const std::string& text, const st
 
                         // Force prefix enforcement for RP commands (/me & /do)
                         if (lower.rfind("/me", 0) == 0) {
-                            std::string lower_clean = to_lower(cleaned);
+                            std::string lower_clean = to_lower_str(cleaned);
                             if (lower_clean.rfind("/me", 0) != 0) {
-                                cleaned = std::regex_replace(cleaned, std::regex("^(?:first,?\\s*|slash\\s*me,?\\s*|slesmi,?\\s*|slash\\s*do,?\\s*)", std::regex_constants::icase), "");
-                                size_t pos = to_lower(cleaned).find("/me");
+                                static const std::vector<std::string> unwanted_me = {
+                                    "first, ", "first ", "slash me, ", "slash me ", "slesmi, ", "slesmi ", "slash do, ", "slash do "
+                                };
+                                for (const auto& u : unwanted_me) {
+                                    if (lower_clean.rfind(u, 0) == 0) {
+                                        cleaned = trim_str(cleaned.substr(u.length()));
+                                        lower_clean = to_lower_str(cleaned);
+                                        break;
+                                    }
+                                }
+                                size_t pos = lower_clean.find("/me");
                                 if (pos != std::string::npos) {
                                     cleaned = "/me " + trim_str(cleaned.substr(pos + 3));
                                 } else {
@@ -591,10 +606,19 @@ std::string GroqTranslator::translate_outbound(const std::string& text, const st
                                 }
                             }
                         } else if (lower.rfind("/do", 0) == 0) {
-                            std::string lower_clean = to_lower(cleaned);
+                            std::string lower_clean = to_lower_str(cleaned);
                             if (lower_clean.rfind("/do", 0) != 0) {
-                                cleaned = std::regex_replace(cleaned, std::regex("^(?:first,?\\s*|slash\\s*do,?\\s*|slash\\s*me,?\\s*)", std::regex_constants::icase), "");
-                                size_t pos = to_lower(cleaned).find("/do");
+                                static const std::vector<std::string> unwanted_do = {
+                                    "first, ", "first ", "slash do, ", "slash do ", "slash me, ", "slash me "
+                                };
+                                for (const auto& u : unwanted_do) {
+                                    if (lower_clean.rfind(u, 0) == 0) {
+                                        cleaned = trim_str(cleaned.substr(u.length()));
+                                        lower_clean = to_lower_str(cleaned);
+                                        break;
+                                    }
+                                }
+                                size_t pos = lower_clean.find("/do");
                                 if (pos != std::string::npos) {
                                     cleaned = "/do " + trim_str(cleaned.substr(pos + 3));
                                 } else {
@@ -656,29 +680,68 @@ bool GroqTranslator::check_rpd_quota(std::string& out_summary) {
 
 std::string GroqTranslator::clean_rp_action(const std::string& text) {
     if (text.empty()) return text;
-    std::string result = text;
-    try {
-        // 1. Strip leading Whisper hallucinated prefix words (Pertama, Terima, Kamera, Satu, Tes, Test, etc.)
-        result = std::regex_replace(result, std::regex("^(?:pertama(?:\\s+pertama)?|terima|kamera|satu|tes|test|halo|hello)[,\\.\\s]+", std::regex_constants::icase), "");
+    std::string s = trim_str(text);
+    if (s.empty()) return s;
 
-        // 2. Strip leading whitespace and punctuation
-        result = std::regex_replace(result, std::regex("^[\\s,\\.\\-\\?!\"]+"), "");
+    // 1. Strip leading Whisper hallucinated prefix words (pertama, terima, kamera, satu, tes, test, halo, hello)
+    static const std::vector<std::string> prefixes = {
+        "pertama, ", "pertama ", "pertama-tama, ", "pertama-tama ",
+        "terima, ", "terima ", "kamera, ", "kamera ", "satu, ", "satu ",
+        "tes, ", "tes ", "test, ", "test ", "halo, ", "halo ", "hello, ", "hello "
+    };
 
-        // 3. Fix common speech misheard words
-        result = std::regex_replace(result, std::regex("^(?:pasar|sar)\\s+(mahluk|manusia|anjing|bangsat|tolol|bego)", std::regex_constants::icase), "dasar $1");
-        result = std::regex_replace(result, std::regex("\\bdiuntuk\\b", std::regex_constants::icase), "diuntung");
-
-        // 4. Match /do variations (slash do, selas do, sles do, sdo, shdo, do)
-        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b[,\\.\\s]*", std::regex_constants::icase))) {
-            return "/do " + std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b[,\\.\\s]*", std::regex_constants::icase), "");
+    bool prefix_removed = true;
+    while (prefix_removed) {
+        prefix_removed = false;
+        std::string lower = to_lower_str(s);
+        for (const auto& p : prefixes) {
+            if (lower.rfind(p, 0) == 0) {
+                s = trim_str(s.substr(p.length()));
+                prefix_removed = true;
+                break;
+            }
         }
+    }
 
-        // 5. Match /me variations (slash me, selas me, sles me, slesmi, smi, shmi, sme, shme, me)
-        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b[,\\.\\s]*", std::regex_constants::icase))) {
-            return "/me " + std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b[,\\.\\s]*", std::regex_constants::icase), "");
+    // Strip leading punctuation like commas, dots, dashes
+    size_t first_char = s.find_first_not_of(" \t\r\n,.-?!\"");
+    if (first_char != std::string::npos && first_char > 0) {
+        s = s.substr(first_char);
+    }
+    s = trim_str(s);
+    std::string lower = to_lower_str(s);
+
+    // 2. Check for /do variations
+    static const std::vector<std::string> do_triggers = {
+        "/do", "slash do", "slash.do", "selas do", "seles do", "slas do", "sles do", "proses do", "perses do", "plas do", "sdo", "shdo"
+    };
+
+    for (const auto& tr : do_triggers) {
+        if (lower.rfind(tr, 0) == 0) {
+            std::string remainder = trim_str(s.substr(tr.length()));
+            if (!remainder.empty() && (remainder[0] == ',' || remainder[0] == '.' || remainder[0] == ':')) {
+                remainder = trim_str(remainder.substr(1));
+            }
+            return "/do " + remainder;
         }
-    } catch (...) {}
-    return result;
+    }
+
+    // 3. Check for /me variations
+    static const std::vector<std::string> me_triggers = {
+        "/me", "slash me", "slash.me", "selas me", "seles me", "slas me", "sles me", "slesmi", "proses me", "perses me", "plas me", "smi", "shmi", "sme", "shme"
+    };
+
+    for (const auto& tr : me_triggers) {
+        if (lower.rfind(tr, 0) == 0) {
+            std::string remainder = trim_str(s.substr(tr.length()));
+            if (!remainder.empty() && (remainder[0] == ',' || remainder[0] == '.' || remainder[0] == ':')) {
+                remainder = trim_str(remainder.substr(1));
+            }
+            return "/me " + remainder;
+        }
+    }
+
+    return s;
 }
 
 std::string GroqTranslator::transcribe_audio(const std::vector<uint8_t>& wav_bytes, std::string& out_error) {
