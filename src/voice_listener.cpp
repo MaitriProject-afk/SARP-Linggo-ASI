@@ -217,6 +217,23 @@ void VoiceListener::stop_and_process() {
         return;
     }
 
+    // Check Audio Volume / Peak Amplitude to filter out silent mic / muted mic
+    const int16_t* samples = (const int16_t*)pcm_to_process.data();
+    size_t sample_count = pcm_to_process.size() / sizeof(int16_t);
+    int16_t max_amp = 0;
+    double sum_sq = 0.0;
+    for (size_t i = 0; i < sample_count; ++i) {
+        int16_t s = abs(samples[i]);
+        if (s > max_amp) max_amp = s;
+        sum_sq += (double)s * s;
+    }
+    double rms = (sample_count > 0) ? sqrt(sum_sq / (double)sample_count) : 0.0;
+
+    if (max_amp < 250 || rms < 40.0) {
+        if (on_status_cb) on_status_cb("⚠️ Mic Silent / Muted (Cek Volume Mic Windows)", "#F59E0B");
+        return;
+    }
+
     std::thread(&VoiceListener::process_audio_buffer, this, pcm_to_process, duration).detach();
 }
 
