@@ -14,6 +14,13 @@
 
 namespace SARPLinggo {
 
+static std::string trim_str(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return "";
+    size_t last = str.find_last_not_of(" \t\r\n");
+    return str.substr(first, (last - first + 1));
+}
+
 extern std::string g_log_file_path;
 static void LogDebugLocal(const std::string& msg) {
     try {
@@ -570,6 +577,32 @@ std::string GroqTranslator::translate_outbound(const std::string& text, const st
                         LogDebugLocal("[Groq Error] Raw outbound content extracted but clean_translation_output returned empty! Raw: " + content);
                     } else {
                         last_error_detail = "";
+
+                        // Force prefix enforcement for RP commands (/me & /do)
+                        if (lower.rfind("/me", 0) == 0) {
+                            std::string lower_clean = to_lower(cleaned);
+                            if (lower_clean.rfind("/me", 0) != 0) {
+                                cleaned = std::regex_replace(cleaned, std::regex("^(?:first,?\\s*|slash\\s*me,?\\s*|slesmi,?\\s*|slash\\s*do,?\\s*)", std::regex_constants::icase), "");
+                                size_t pos = to_lower(cleaned).find("/me");
+                                if (pos != std::string::npos) {
+                                    cleaned = "/me " + trim_str(cleaned.substr(pos + 3));
+                                } else {
+                                    cleaned = "/me " + trim_str(cleaned);
+                                }
+                            }
+                        } else if (lower.rfind("/do", 0) == 0) {
+                            std::string lower_clean = to_lower(cleaned);
+                            if (lower_clean.rfind("/do", 0) != 0) {
+                                cleaned = std::regex_replace(cleaned, std::regex("^(?:first,?\\s*|slash\\s*do,?\\s*|slash\\s*me,?\\s*)", std::regex_constants::icase), "");
+                                size_t pos = to_lower(cleaned).find("/do");
+                                if (pos != std::string::npos) {
+                                    cleaned = "/do " + trim_str(cleaned.substr(pos + 3));
+                                } else {
+                                    cleaned = "/do " + trim_str(cleaned);
+                                }
+                            }
+                        }
+
                         return cleaned;
                     }
                 }
@@ -625,14 +658,24 @@ std::string GroqTranslator::clean_rp_action(const std::string& text) {
     if (text.empty()) return text;
     std::string result = text;
     try {
+        // 1. Strip leading Whisper hallucinated prefix words (Pertama, Terima, Kamera, Satu, Tes, Test, etc.)
+        result = std::regex_replace(result, std::regex("^(?:pertama(?:\\s+pertama)?|terima|kamera|satu|tes|test|halo|hello)[,\\.\\s]+", std::regex_constants::icase), "");
+
+        // 2. Strip leading whitespace and punctuation
+        result = std::regex_replace(result, std::regex("^[\\s,\\.\\-\\?!\"]+"), "");
+
+        // 3. Fix common speech misheard words
         result = std::regex_replace(result, std::regex("^(?:pasar|sar)\\s+(mahluk|manusia|anjing|bangsat|tolol|bego)", std::regex_constants::icase), "dasar $1");
         result = std::regex_replace(result, std::regex("\\bdiuntuk\\b", std::regex_constants::icase), "diuntung");
 
-        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b", std::regex_constants::icase))) {
-            return std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b", std::regex_constants::icase), "/do");
+        // 4. Match /do variations (slash do, selas do, sles do, sdo, shdo, do)
+        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b[,\\.\\s]*", std::regex_constants::icase))) {
+            return "/do " + std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b[,\\.\\s]*", std::regex_constants::icase), "");
         }
-        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b", std::regex_constants::icase))) {
-            return std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b", std::regex_constants::icase), "/me");
+
+        // 5. Match /me variations (slash me, selas me, sles me, slesmi, smi, shmi, sme, shme, me)
+        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b[,\\.\\s]*", std::regex_constants::icase))) {
+            return "/me " + std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b[,\\.\\s]*", std::regex_constants::icase), "");
         }
     } catch (...) {}
     return result;
