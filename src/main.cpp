@@ -8,6 +8,7 @@
 #include "../include/translator.h"
 #include "../include/chat_listener.h"
 #include "../include/clipboard_listener.h"
+#include "../include/voice_listener.h"
 #include "../include/licensing.h"
 #include "../include/gui.h"
 #include "../include/d3d9_hook.h"
@@ -26,6 +27,7 @@ GroqTranslator g_translator;
 LicenseManager g_license(Config::get_game_directory() + "\\SARPLinggo_license.json");
 ChatlogListener g_chat_listener;
 ClipboardListener g_clipboard_listener;
+VoiceListener g_voice_listener;
 
 static void LogDebugMain(const std::string& msg) {
     try {
@@ -167,6 +169,29 @@ DWORD WINAPI PluginMainThread(LPVOID lpParam) {
         g_gui->add_chat_card(card);
     });
     g_clipboard_listener.start();
+
+    g_voice_listener.init(&g_translator, &g_config);
+    g_voice_listener.set_on_status([](const std::string& status_msg, const std::string& color_hex) {
+        g_gui->set_status(status_msg);
+    });
+    g_voice_listener.set_on_voice_translated([](const std::string& orig, const std::string& trans) {
+        ChatItem card;
+        card.speaker = "MIC (Voice Outbound)";
+        card.type = "OUTBOUND_VOICE";
+        card.content = orig;
+        card.translated = trans;
+
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+        struct tm buf;
+        localtime_s(&buf, &in_time_t);
+        char time_str[32];
+        strftime(time_str, sizeof(time_str), "%H:%M:%S", &buf);
+        card.timestamp = std::string(time_str);
+
+        g_gui->add_chat_card(card);
+    });
+    g_voice_listener.start();
 
     // Hook D3D9 for rendering ImGui inside GTA SA
     int hook_attempts = 0;

@@ -313,6 +313,30 @@ void OverlayGUI::render() {
                             clipboard_ref->set_enabled(config_ref->enable_clipboard_outbound);
                         }
                     }
+
+                    ImGui::Spacing();
+
+                    // 3. Voice Input STT Toggle
+                    ImGui::Checkbox("Master: Aktifkan Perekam Suara / Voice Input (Groq Whisper STT)", &config_ref->enable_voice_input);
+
+                    if (config_ref->enable_voice_input) {
+                        ImGui::Indent(20.0f);
+                        ImGui::Text("Hotkey Voice Push-To-Talk:");
+                        ImGui::SameLine();
+                        const char* hotkeys[] = { "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "V", "B", "N", "C", "X" };
+                        static int hk_idx = 3; // Default F4
+                        for (int k = 0; k < 17; ++k) {
+                            std::string hk_l = hotkeys[k];
+                            std::transform(hk_l.begin(), hk_l.end(), hk_l.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                            if (hk_l == config_ref->voice_hotkey) { hk_idx = k; break; }
+                        }
+                        if (ImGui::Combo("##VoiceHotkeyCombo", &hk_idx, hotkeys, 17)) {
+                            std::string selected = hotkeys[hk_idx];
+                            std::transform(selected.begin(), selected.end(), selected.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                            config_ref->voice_hotkey = selected;
+                        }
+                        ImGui::Unindent(20.0f);
+                    }
                 }
 
                 ImGui::Spacing();

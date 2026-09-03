@@ -621,4 +621,134 @@ bool GroqTranslator::check_rpd_quota(std::string& out_summary) {
     return overall_success;
 }
 
+std::string GroqTranslator::clean_rp_action(const std::string& text) {
+    if (text.empty()) return text;
+    std::string result = text;
+    try {
+        result = std::regex_replace(result, std::regex("^(?:pasar|sar)\\s+(mahluk|manusia|anjing|bangsat|tolol|bego)", std::regex_constants::icase), "dasar $1");
+        result = std::regex_replace(result, std::regex("\\bdiuntuk\\b", std::regex_constants::icase), "diuntung");
+
+        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b", std::regex_constants::icase))) {
+            return std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:sdo|shdo)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*do|do)\\b", std::regex_constants::icase), "/do");
+        }
+        if (std::regex_search(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b", std::regex_constants::icase))) {
+            return std::regex_replace(result, std::regex("^(?:[a-zA-Z]*(?:smi|shmi|sme|shme)|(?:slash|selas|seles|slas|sles|proses|perses|plas)\\s*(?:mi|me)?|me)\\b", std::regex_constants::icase), "/me");
+        }
+    } catch (...) {}
+    return result;
+}
+
+std::string GroqTranslator::transcribe_audio(const std::vector<uint8_t>& wav_bytes, std::string& out_error) {
+    if (wav_bytes.empty()) {
+        out_error = "Ukuran Audio Kosong";
+        return "";
+    }
+
+    std::string key, masked;
+    size_t key_idx = 0;
+    size_t total_attempts = key_pool.total_keys();
+    if (total_attempts == 0) {
+        out_error = "[Groq API Key Belum Diisi]";
+        return "";
+    }
+
+    std::string boundary = "----SARPLinggoBoundary98765";
+    std::string prompt = "Percakapan Bahasa Indonesia SAMP Roleplay: /me, /do, slash me, slash do, dasar, mahluk, manusia, kamu, lu, gue, bangsat, anjing, kontol, bajingan, tidak tahu diri, tidak tahu diuntung.";
+
+    // Build Multipart Body
+    std::vector<uint8_t> body;
+    auto add_string = [&](const std::string& str) {
+        body.insert(body.end(), str.begin(), str.end());
+    };
+
+    // Part 1: model
+    add_string("--" + boundary + "\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-large-v3-turbo\r\n");
+    // Part 2: language
+    add_string("--" + boundary + "\r\nContent-Disposition: form-data; name=\"language\"\r\n\r\nid\r\n");
+    // Part 3: prompt
+    add_string("--" + boundary + "\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\n" + prompt + "\r\n");
+    // Part 4: response_format
+    add_string("--" + boundary + "\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\njson\r\n");
+    // Part 5: file
+    add_string("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"speech.wav\"\r\nContent-Type: audio/wav\r\n\r\n");
+    body.insert(body.end(), wav_bytes.begin(), wav_bytes.end());
+    add_string("\r\n--" + boundary + "--\r\n");
+
+    for (size_t attempt = 0; attempt < total_attempts; ++attempt) {
+        if (!key_pool.get_next_working_key(key, key_idx, masked)) {
+            break;
+        }
+
+        HINTERNET hSession = WinHttpOpen(L"SA-RP-Linggo/1.3", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+        if (!hSession) continue;
+
+        HINTERNET hConnect = WinHttpConnect(hSession, L"api.groq.com", INTERNET_DEFAULT_HTTPS_PORT, 0);
+        if (!hConnect) {
+            WinHttpCloseHandle(hSession);
+            continue;
+        }
+
+        HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/openai/v1/audio/transcriptions", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+        if (!hRequest) {
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            continue;
+        }
+
+        std::string headers = "Authorization: Bearer " + key + "\r\nContent-Type: multipart/form-data; boundary=" + boundary + "\r\n";
+        std::wstring wheaders(headers.begin(), headers.end());
+
+        BOOL bResults = WinHttpSendRequest(hRequest, wheaders.c_str(), (DWORD)wheaders.length(), (LPVOID)body.data(), (DWORD)body.size(), (DWORD)body.size(), 0);
+        if (bResults) bResults = WinHttpReceiveResponse(hRequest, NULL);
+
+        DWORD status_code = 0;
+        DWORD dwSize = sizeof(status_code);
+        if (bResults) {
+            WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &dwSize, WINHTTP_NO_HEADER_INDEX);
+        }
+
+        std::string res_text = "";
+        if (bResults) {
+            DWORD dwDownloaded = 0;
+            do {
+                dwSize = 0;
+                if (!WinHttpQueryDataAvailable(hRequest, &dwSize)) break;
+                if (dwSize == 0) break;
+
+                std::vector<char> buffer(dwSize + 1, 0);
+                if (WinHttpReadData(hRequest, (LPVOID)buffer.data(), dwSize, &dwDownloaded)) {
+                    res_text.append(buffer.data(), dwDownloaded);
+                }
+            } while (dwSize > 0);
+        }
+
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+
+        if (status_code == 200 && !res_text.empty()) {
+            size_t text_pos = res_text.find("\"text\":");
+            if (text_pos != std::string::npos) {
+                size_t start_q = res_text.find("\"", text_pos + 7);
+                if (start_q != std::string::npos) {
+                    size_t end_q = start_q + 1;
+                    while (end_q < res_text.length()) {
+                        if (res_text[end_q] == '"' && res_text[end_q - 1] != '\\') break;
+                        end_q++;
+                    }
+                    std::string raw_text = res_text.substr(start_q + 1, end_q - start_q - 1);
+                    std::string cleaned_text = clean_rp_action(raw_text);
+                    out_error = "";
+                    return cleaned_text;
+                }
+            }
+        } else {
+            key_pool.mark_rate_limited(key, (int)status_code, res_text);
+        }
+    }
+
+    out_error = "[Transkripsi Voice Gagal]";
+    return "";
+}
+
 } // namespace SARPLinggo

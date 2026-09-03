@@ -12,6 +12,7 @@ add_library(SARPLinggoASI SHARED
     src/translator.cpp
     src/chat_listener.cpp
     src/clipboard_listener.cpp
+    src/voice_listener.cpp
     src/licensing.cpp
     src/gui.cpp
     src/d3d9_hook.cpp
@@ -20,6 +21,7 @@ add_library(SARPLinggoASI SHARED
     include/translator.h
     include/chat_listener.h
     include/clipboard_listener.h
+    include/voice_listener.h
     include/licensing.h
     include/gui.h
     include/d3d9_hook.h
@@ -78,6 +80,7 @@ endif()
 
 target_link_libraries(SARPLinggoASI PRIVATE
     winhttp
+    winmm
     user32
     gdi32
     shell32

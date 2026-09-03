@@ -65,6 +65,30 @@ bool Config::load(const std::string& ini_path) {
     use_codsmp = GetPrivateProfileIntA("Settings", "UseCodSMP", 1, ini_path.c_str()) != 0;
     enable_clipboard_outbound = GetPrivateProfileIntA("Settings", "EnableClipboardOutbound", 1, ini_path.c_str()) != 0;
     enable_inbound_chatlog = GetPrivateProfileIntA("Settings", "EnableInboundChatlog", 1, ini_path.c_str()) != 0;
+    enable_voice_input = GetPrivateProfileIntA("Settings", "EnableVoiceInput", 1, ini_path.c_str()) != 0;
+
+    GetPrivateProfileStringA("Settings", "VoiceHotkey", "f4", buffer, sizeof(buffer), ini_path.c_str());
+    voice_hotkey = trim(buffer);
+    if (voice_hotkey.empty()) voice_hotkey = "f4";
+
+    // Helper to map hotkey string to Virtual Key Code
+    std::string hk_lower = voice_hotkey;
+    std::transform(hk_lower.begin(), hk_lower.end(), hk_lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+    if (hk_lower == "f1") voice_hotkey_vk = VK_F1;
+    else if (hk_lower == "f2") voice_hotkey_vk = VK_F2;
+    else if (hk_lower == "f3") voice_hotkey_vk = VK_F3;
+    else if (hk_lower == "f4") voice_hotkey_vk = VK_F4;
+    else if (hk_lower == "f5") voice_hotkey_vk = VK_F5;
+    else if (hk_lower == "f6") voice_hotkey_vk = VK_F6;
+    else if (hk_lower == "f7") voice_hotkey_vk = VK_F7;
+    else if (hk_lower == "f8") voice_hotkey_vk = VK_F8;
+    else if (hk_lower == "f9") voice_hotkey_vk = VK_F9;
+    else if (hk_lower == "f10") voice_hotkey_vk = VK_F10;
+    else if (hk_lower == "f11") voice_hotkey_vk = VK_F11;
+    else if (hk_lower == "f12") voice_hotkey_vk = VK_F12;
+    else if (hk_lower.length() == 1 && hk_lower[0] >= 'a' && hk_lower[0] <= 'z') voice_hotkey_vk = std::toupper(hk_lower[0]);
+    else voice_hotkey_vk = VK_F4;
+
     auto_translate_ic = GetPrivateProfileIntA("Settings", "AutoTranslateIC", 1, ini_path.c_str()) != 0;
     auto_translate_me_do = GetPrivateProfileIntA("Settings", "AutoTranslateMeDo", 1, ini_path.c_str()) != 0;
     developer_mode = GetPrivateProfileIntA("Settings", "DeveloperMode", 0, ini_path.c_str()) != 0;
@@ -95,6 +119,8 @@ bool Config::save(const std::string& ini_path) {
     WritePrivateProfileStringA("Settings", "UseCodSMP", use_codsmp ? "1" : "0", ini_path.c_str());
     WritePrivateProfileStringA("Settings", "EnableClipboardOutbound", enable_clipboard_outbound ? "1" : "0", ini_path.c_str());
     WritePrivateProfileStringA("Settings", "EnableInboundChatlog", enable_inbound_chatlog ? "1" : "0", ini_path.c_str());
+    WritePrivateProfileStringA("Settings", "EnableVoiceInput", enable_voice_input ? "1" : "0", ini_path.c_str());
+    WritePrivateProfileStringA("Settings", "VoiceHotkey", voice_hotkey.c_str(), ini_path.c_str());
     WritePrivateProfileStringA("Settings", "AutoTranslateIC", auto_translate_ic ? "1" : "0", ini_path.c_str());
     WritePrivateProfileStringA("Settings", "AutoTranslateMeDo", auto_translate_me_do ? "1" : "0", ini_path.c_str());
     WritePrivateProfileStringA("Settings", "DeveloperMode", developer_mode ? "1" : "0", ini_path.c_str());

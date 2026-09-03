@@ -16,6 +16,9 @@ struct Config {
     bool use_codsmp = true;
     bool enable_clipboard_outbound = true;
     bool enable_inbound_chatlog = true;
+    bool enable_voice_input = true;
+    std::string voice_hotkey = "f4";
+    int voice_hotkey_vk = VK_F4;
     bool auto_translate_ic = true;
     bool auto_translate_me_do = true;
     bool developer_mode = false;

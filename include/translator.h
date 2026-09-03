@@ -79,6 +79,8 @@ public:
 
     std::string translate_inbound(const std::string& text, const std::string& chat_type = "SAYS");
     std::string translate_outbound(const std::string& text, const std::string& style = "Standard English");
+    std::string transcribe_audio(const std::vector<uint8_t>& wav_bytes, std::string& out_error);
+    static std::string clean_rp_action(const std::string& text);
     
     bool check_rpd_quota(std::string& out_summary);
 };
